@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Define and train CNN to classify FashionMNIST database
+# Define and train CNN to classify FashionMNIST database using dropout layers and momentum
 
 import cv2
 import matplotlib.pyplot as plt
@@ -73,8 +73,15 @@ class Network(nn.Module):
 
         # another maxpool layer converts tensor to (20, 5, 5)
 
-        # final linear layer has 20*(5*5) inputs and and 10 outputs
-        self.fc1 = nn.Linear(20*5*5, 10)
+        # final linear layer has 20*(5*5) inputs and 50 outputs
+        self.fc1 = nn.Linear(20*5*5, 50)
+
+        # dropout with p=0.4
+        self.fc1_drop = nn.Dropout(p=0.4)
+        
+        # finally, create 10 output channels (for the 10 classes)
+        self.fc2 = nn.Linear(50, 10)
+
 
     # feedforward behavior
     def forward(self, x):
@@ -85,11 +92,10 @@ class Network(nn.Module):
         # flatten 
         x = x.view(x.size(0), -1)
 
-        # one linear layer
+        # two linear layers with dropout in between
         x = F.relu(self.fc1(x))
-
-        # softmax layer for output probability distribution
-        x = F.log_softmax(x, dim=1)
+        x = self.fc1_drop(x)
+        x = self.fc2(x)
 
         return x
     
@@ -98,10 +104,10 @@ print(network)
 
 # 5. Specify Optimizer and Loss Function
 
-# cross entropy loss = NLL loss + softmax but we already did softmax in final step above
-criterion = nn.NLLLoss()
-# using SGD with small learning rate
-optimizer = optim.SGD(network.parameters(), lr=0.001)
+# cross entropy loss = NLL loss + softmax
+criterion = nn.CrossEntropyLoss()
+# using SGD with small learning rate and some momentum
+optimizer = optim.SGD(network.parameters(), lr=0.001, momentum=0.9)
 
 # 6. Get Accuracy of Network Before Training
 
@@ -226,16 +232,17 @@ for idx in np.arange(batch_size):
     ax.imshow(np.squeeze(images[idx]), cmap='gray')
     ax.set_title("{} ({})".format(classes[preds[idx]], classes[labels[idx]]),
                  color=("green" if preds[idx]==labels[idx] else "red"))
-plt.show()
+#plt.show()
 
 # 10. Save the model
 model_dir = 'saved_models/'
-model_name = 'fashion_net_simple.pt'
+model_name = 'fashion_net_ex.pt'
 torch.save(network.state_dict(), model_dir+model_name)
 
 
 # Final Note
 ''' 
-Model misclassifies shirts and pullovers as coats which have a similar shape. Because it performs well on everything
-except these two classes, it is likely overfitting and accuracy could be increased by adding dropout layers.
+Adding dropout layers and momentum has definitely improved performance. Shirts, pullovers, and coats all
+have similar shape so they have the least accuracy. This could be improved even further by perhaps doing
+some data augmentation or adding another conv layer to extract higher level features.
 '''
